@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Weather</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: system-ui, Arial, sans-serif; max-width: 720px; margin: 40px auto; }
+        .card { border: 1px solid #ddd; border-radius: 12px; padding: 20px; }
+        .row { display: flex; gap: 24px; }
+        .metric { flex: 1; background: #f7f7f7; border-radius: 10px; padding: 16px; text-align: center; }
+        .val { font-size: 32px; font-weight: 700; margin-top: 6px; }
+        button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; cursor: pointer; }
+        button + button { margin-left: 8px; }
+        .log { margin-top: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; background:#0b1020; color:#bfe1ff; padding:12px; border-radius:8px; max-height:180px; overflow:auto;}
+    </style>
+</head>
+<body>
+<h1>Live Weather (WebSocket)</h1>
+
+<div class="card">
+    <div class="row">
+        <div class="metric"><div>Temp (°C)</div><div id="t" class="val">—</div></div>
+        <div class="metric"><div>Humidity (%)</div><div id="h" class="val">—</div></div>
+        <div class="metric"><div>Pressure (hPa)</div><div id="p" class="val">—</div></div>
+    </div>
+
+    <div style="margin-top:16px">
+        <button onclick="setBatch()">Use BATCH</button>
+        <button onclick="setRealtime()">Use REALTIME</button>
+        <button onclick="manual()">Manual 22/40/1007</button>
+        <button onclick="updateOnce()">Update once</button>
+    </div>
+
+    <div class="log" id="log"></div>
+</div>
+
+<script>
+    const log = (m) => {
+        const el = document.getElementById('log');
+        el.textContent = `[${new Date().toLocaleTimeString()}] ${m}\n` + el.textContent;
+    };
+
+    // WebSocket connect
+    const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+    const ws = new WebSocket(url);
+
+    ws.onopen = () => log('WS connected');
+    ws.onclose = () => log('WS closed');
+    ws.onerror = (e) => log('WS error ' + e);
+
+    ws.onmessage = (event) => {
+        try {
+            const d = JSON.parse(event.data);
+            document.getElementById('t').textContent = d.temperature.toFixed(1);
+            document.getElementById('h').textContent = d.humidity.toFixed(1);
+            document.getElementById('p').textContent = d.pressure.toFixed(1);
+            log('update ' + event.data);
+        } catch (e) {
+            log('non-JSON message: ' + event.data);
+        }
+    };
+
+    // helpers
+    async function setBatch()   { await fetch('/weather/strategy?type=batch'); log('strategy=batch'); }
+    async function setRealtime(){ await fetch('/weather/strategy?type=realtime'); log('strategy=realtime'); }
+    async function manual()     { const r = await fetch('/weather/manual?t=22&h=40&p=1007'); log('manual ' + await r.text()); }
+    async function updateOnce() { const r = await fetch('/weather/update'); log('update ' + await r.text()); }
+</script>
+</body>
+</html>

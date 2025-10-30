@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Weather — Live WS</title>
+    <style>
+        body {font-family: system-ui, sans-serif; max-width: 720px; margin: 32px auto;}
+        .card {border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 12px 0;}
+        .row {display: flex; gap: 16px;}
+        .k {color:#666;}
+        .v {font-weight:700;}
+        #status {font-size: 14px; color:#666}
+    </style>
+</head>
+<body>
+<h1>🌤️ Weather — WebSocket stream</h1>
+<div id="status">Connecting…</div>
+
+<div class="card">
+    <div class="row"><span class="k">Temperature:</span> <span id="t" class="v">—</span></div>
+    <div class="row"><span class="k">Humidity:</span>    <span id="h" class="v">—</span></div>
+    <div class="row"><span class="k">Pressure:</span>    <span id="p" class="v">—</span></div>
+</div>
+
+<div class="card"><pre id="raw">{}</pre></div>
+
+<script>
+    const t = document.getElementById('t');
+    const h = document.getElementById('h');
+    const p = document.getElementById('p');
+    const raw = document.getElementById('raw');
+    const statusEl = document.getElementById('status');
+
+    // Если у тебя маппинг /ws/weather — оставь как есть.
+    // Если другой — впиши свой путь.
+    const url = (location.protocol === 'https:' ? 'wss://' : 'ws://')
+        + location.host + '/ws/weather';
+
+    function connect() {
+        const ws = new WebSocket(url);
+
+        ws.onopen = () => { statusEl.textContent = 'Connected ✔'; };
+
+        ws.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                t.textContent = data.temperature?.toFixed?.(1) ?? data.temperature;
+                h.textContent = data.humidity?.toFixed?.(1) ?? data.humidity;
+                p.textContent = data.pressure?.toFixed?.(1) ?? data.pressure;
+                raw.textContent = JSON.stringify(data, null, 2);
+            } catch {
+                // На случай если сервер шлёт простые строки
+                raw.textContent = e.data;
+            }
+        };
+
+        ws.onclose = () => {
+            statusEl.textContent = 'Disconnected… reconnecting in 2s';
+            setTimeout(connect, 2000);
+        };
+
+        ws.onerror = () => { statusEl.textContent = 'WS error'; };
+    }
+    connect();
+</script>
+</body>
+</html>
