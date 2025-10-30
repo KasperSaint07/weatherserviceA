@@ -1,7 +1,7 @@
-package kz.aitu.weather.core.observer;
+    package kz.aitu.weather.core.observer;
 
-import kz.aitu.weather.core.model.WeatherData;
+    import kz.aitu.weather.core.model.WeatherData;
 
-public interface WeatherObserver {
-    void onWeatherUpdate(WeatherData data);
-}
+    public interface WeatherObserver {
+        void onWeatherUpdate(WeatherData data);
+    }
