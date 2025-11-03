@@ -26,16 +26,18 @@ public class WeatherController {
     public WeatherData getCurrentWeather() {
         return service.getCurrentData();
     }
+        
 
-    @RequestMapping(value = "/update", method = {GET, POST})
+    @RequestMapping(value = "/update", method = {RequestMethod.GET, RequestMethod.POST})
     public WeatherData updateWeather() {
         return service.updateWeather();
     }
 
-    @RequestMapping(value = "/strategy", method = {GET, POST})
+    @RequestMapping(value = "/strategy", method = {RequestMethod.GET, RequestMethod.POST})
     public String changeStrategy(@RequestParam String type) {
         return service.changeStrategy(type);
     }
+
 
     @RequestMapping(value = "/manual", method = {GET, POST})
     public WeatherData setManual(@RequestParam double t,

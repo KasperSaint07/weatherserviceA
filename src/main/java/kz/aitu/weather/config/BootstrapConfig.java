@@ -38,7 +38,6 @@ public class BootstrapConfig {
         System.out.println("[Bootstrap] Observers registered, strategy=Realtime (+WebSocket)");
     }
 
-    // пример фрагмента в BootstrapConfig
     @Bean
     public CommandLineRunner bootstrap(WeatherSocketHandler wsHandler,
                                        HistoryService history) {
@@ -46,8 +45,13 @@ public class BootstrapConfig {
             var station = WeatherStation.getInstance();
             station.registerObserver(new WebSocketObserver(wsHandler));
             station.registerObserver(new HistoryObserver(history));
-            System.out.println("[Bootstrap] ✅ Observers registered, strategy=Realtime (+WebSocket+History)");
+
+            station.setStrategy(new kz.aitu.weather.core.strategy.RealTimeSensorStrategy());
+            station.updateWeather();
+
+            System.out.println("[Bootstrap] Observers registered, default=Realtime, first sample pushed");
         };
     }
+
 
 }

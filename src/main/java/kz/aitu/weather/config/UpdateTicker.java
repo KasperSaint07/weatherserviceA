@@ -9,8 +9,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-public class BatchTicker {
-    private static final Logger log = LoggerFactory.getLogger(BatchTicker.class);
+public class UpdateTicker {
+    private static final Logger log = LoggerFactory.getLogger(UpdateTicker.class);
 
     private final WeatherStation station = WeatherStation.getInstance();
 

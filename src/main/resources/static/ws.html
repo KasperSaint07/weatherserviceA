@@ -4,64 +4,137 @@
     <meta charset="UTF-8" />
     <title>Weather — Live WS</title>
     <style>
-        body {font-family: system-ui, sans-serif; max-width: 720px; margin: 32px auto;}
-        .card {border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 12px 0;}
-        .row {display: flex; gap: 16px;}
-        .k {color:#666;}
-        .v {font-weight:700;}
-        #status {font-size: 14px; color:#666}
+        :root{--card:#f6f7fb;--border:#e6e8ef}
+        body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:900px;margin:32px auto;padding:0 16px}
+        h1{font-size:28px;margin:0 0 8px}
+        #status{font-size:14px;color:#666;margin-bottom:16px}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+        .row{display:flex;gap:12px;align-items:baseline}
+        .k{color:#666;min-width:110px}
+        .v{font-weight:700}
+        .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+        button{border:1px solid var(--border);background:white;border-radius:10px;padding:8px 12px;cursor:pointer}
+        button.active{background:#111;color:#fff;border-color:#111}
+        form.manual{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+        input[type=number]{width:110px;padding:8px;border:1px solid var(--border);border-radius:10px}
+        pre{margin:0;white-space:pre-wrap}
+        .muted{color:#666;font-size:13px}
     </style>
 </head>
 <body>
 <h1>🌤️ Weather — WebSocket stream</h1>
 <div id="status">Connecting…</div>
 
-<div class="card">
-    <div class="row"><span class="k">Temperature:</span> <span id="t" class="v">—</span></div>
-    <div class="row"><span class="k">Humidity:</span>    <span id="h" class="v">—</span></div>
-    <div class="row"><span class="k">Pressure:</span>    <span id="p" class="v">—</span></div>
+<div class="grid">
+    <!-- Текущие значения -->
+    <div class="card">
+        <div class="row"><span class="k">Temperature:</span> <span id="t" class="v">—</span></div>
+        <div class="row"><span class="k">Humidity:</span>    <span id="h" class="v">—</span></div>
+        <div class="row"><span class="k">Pressure:</span>    <span id="p" class="v">—</span></div>
+    </div>
+
+    <!-- Переключатель стратегий -->
+    <div class="card">
+        <div class="row"><span class="k">Strategy:</span>
+            <div class="toolbar">
+                <button data-str="realtime" id="btn-rt">Realtime</button>
+                <button data-str="batch"    id="btn-batch">Batch</button>
+                <button data-str="manual"   id="btn-man">Manual</button>
+            </div>
+        </div>
+        <div class="muted" style="margin-top:8px">
+            Realtime — случайные данные; Batch — «плавная» модель; Manual — берёт из формы ниже.
+        </div>
+    </div>
+
+    <!-- Ручной ввод -->
+    <div class="card">
+        <form id="manualForm" class="manual" onsubmit="return false;">
+            <strong>Manual input:</strong>
+            <label>T (°C) <input id="in-t" type="number" step="0.1" required></label>
+            <label>H (%)  <input id="in-h" type="number" step="0.1" required></label>
+            <label>P (hPa)<input id="in-p" type="number" step="0.1" required></label>
+            <button id="btn-apply">Apply</button>
+        </form>
+        <div class="muted">Нажми Apply — стратегия переключится на <em>manual</em>, и всем клиентам уйдёт обновление.</div>
+    </div>
+
+    <!-- Сырой JSON -->
+    <div class="card"><pre id="raw">{}</pre></div>
 </div>
 
-<div class="card"><pre id="raw">{}</pre></div>
-
 <script>
+    // элементы
     const t = document.getElementById('t');
     const h = document.getElementById('h');
     const p = document.getElementById('p');
     const raw = document.getElementById('raw');
     const statusEl = document.getElementById('status');
+    const buttons = [...document.querySelectorAll('button[data-str]')];
 
-    // Если у тебя маппинг /ws/weather — оставь как есть.
-    // Если другой — впиши свой путь.
-    const url = (location.protocol === 'https:' ? 'wss://' : 'ws://')
-        + location.host + '/ws/weather';
+    // WS URL
+    const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/weather';
 
-    function connect() {
-        const ws = new WebSocket(url);
+    // helpers
+    function setActive(name){
+        buttons.forEach(b=>b.classList.toggle('active', b.dataset.str===name));
+    }
+    async function callChangeStrategy(type){
+        const r = await fetch(`/weather/strategy?type=${encodeURIComponent(type)}`, {method:'POST'});
+        if(!r.ok) throw new Error('Strategy change failed');
+        setActive(type);
+    }
+    async function callManual(t,h,pv){
+        const qs = new URLSearchParams({t,h,p:pv}).toString();
+        const r = await fetch(`/weather/manual?${qs}`, {method:'POST'});
+        if(!r.ok) throw new Error('Manual update failed');
+    }
 
-        ws.onopen = () => { statusEl.textContent = 'Connected ✔'; };
+    // кнопки стратегий
+    buttons.forEach(b=>{
+        b.addEventListener('click', async ()=>{
+            try{
+                await callChangeStrategy(b.dataset.str);
+            }catch(e){ alert(e.message); }
+        });
+    });
 
-        ws.onmessage = (e) => {
-            try {
+    // форма
+    document.getElementById('btn-apply').addEventListener('click', async ()=>{
+        const tv = document.getElementById('in-t').value;
+        const hv = document.getElementById('in-h').value;
+        const pv = document.getElementById('in-p').value;
+        try{
+            await callChangeStrategy('manual'); // переключили стратегию
+            await callManual(tv, hv, pv);       // отправили значения
+        }catch(e){ alert(e.message); }
+    });
+
+    // WebSocket
+    function connect(){
+        const ws = new WebSocket(WS_URL);
+
+        ws.onopen = ()=>{ statusEl.textContent = 'Connected ✓'; };
+        ws.onmessage = e=>{
+            try{
                 const data = JSON.parse(e.data);
                 t.textContent = data.temperature?.toFixed?.(1) ?? data.temperature;
                 h.textContent = data.humidity?.toFixed?.(1) ?? data.humidity;
                 p.textContent = data.pressure?.toFixed?.(1) ?? data.pressure;
                 raw.textContent = JSON.stringify(data, null, 2);
-            } catch {
-                // На случай если сервер шлёт простые строки
-                raw.textContent = e.data;
-            }
+            }catch{ raw.textContent = e.data; }
         };
-
-        ws.onclose = () => {
+        ws.onclose = ()=>{
             statusEl.textContent = 'Disconnected… reconnecting in 2s';
             setTimeout(connect, 2000);
         };
-
-        ws.onerror = () => { statusEl.textContent = 'WS error'; };
+        ws.onerror = ()=>{ statusEl.textContent = 'WS error'; };
     }
     connect();
+
+    // По умолчанию подсветим текущую стратегию как realtime
+    setActive('realtime');
 </script>
 </body>
 </html>

@@ -15,12 +15,6 @@ public class WeatherSocketHandler extends TextWebSocketHandler {
     private final Set<WebSocketSession> sessions = new CopyOnWriteArraySet<>();
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) {
-        sessions.add(session);
-        System.out.println("[WS] connected: " + session.getId());
-    }
-
-    @Override
     public void afterConnectionClosed(WebSocketSession session, org.springframework.web.socket.CloseStatus status) {
         sessions.remove(session);
         System.out.println("[WS] disconnected: " + session.getId());
@@ -36,4 +30,19 @@ public class WeatherSocketHandler extends TextWebSocketHandler {
     }
 
     public int size() { return sessions.size(); }
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) {
+        sessions.add(session);
+        System.out.println("[WS] connected: " + session.getId());
+
+        try {
+            var latest = kz.aitu.weather.core.observer.WeatherStation.getInstance().getLatestData();
+            if (latest != null) {
+                var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                session.sendMessage(new TextMessage(mapper.writeValueAsString(latest)));
+            }
+        } catch (Exception ignored) {}
+    }
+
 }
